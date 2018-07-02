@@ -1,5 +1,5 @@
-const db = require('./db_helper');
 const md5 = require('md5');
+const userModel = require('../models/user');
 // 1. 展示登陆页面
 
 // 2 处理登陆逻辑
@@ -57,78 +57,36 @@ exports.handleSignin = (req, res) => {
 exports.showSignup = (req, res) => {
   res.render('signup.html')
 }
+
+
 // 处理注册
 exports.handleSignup = (req, res) => {
   // 添加数据之前要做数据验证
   // TODO 验证数据是否输入
 
   // 验证邮箱是否重复
-  db.query(
-    'select * from `users` where `email`=?',
-    req.body.email,
-    (err, result) => {
+  userModel.getByEmail(req.body.email, (err, user) => {
+    if (err) {
+      return res.send('服务器内部错误');
+    }
+    userModel.getByNickname(req.body.nickname, (err, user) => {
       if (err) {
         return res.send('服务器内部错误');
       }
-      if (result.length > 0) {
-        // 数据表中已经存在这个数据
-        res.render('signup.html', {
-          msg: '邮箱已经存在'
-        })
-        return;
-      }
-      // 验证昵称
-      db.query(
-        'select * from `users` where `nickname`=?',
-        req.body.nickname,
-        (err, result) => {
-          if (err) {
-            return res.send('服务器内部错误');
-          }
-          if (result.length > 0) {
-            // 昵称已经存在
-            res.render('signup.html', {
-              msg: '昵称已经存在'
-            })
-            return;
-          }
-          // 邮箱和昵称都不存在， 插入数据
-
-          // console.log(req.body)
-          // 获取post数据，配置body-parser 在app.js中配置
-          req.body.createdAt = new Date();
-          //  对密码进行处理
-          req.body.password = md5(req.body.password);
-
-          // insert into `uesrs` (nickname, pwd) valuse('zs', 45)
-          //插入数据 
-          db.query(
-            'insert into `users` set ?',
-            req.body,
-            (err, result) => {
-              if (err) {
-                return res.send('服务器内部错误');
-              }
-              // console.log(result);
-              if (result.affectedRows === 1) {
-                // 登陆成功
-                // 跳转页面
-                res.redirect('/signin');
-                // res.send('<script>alert("注册成功");location.href="/signin"</script>')
-              } else {
-                res.render('signup.html', {
-                  msg: '注册失败'
-                })
-              }
-            }
-          )
+      // 插入用户
+      req.body.createdAt = new Date();
+      req.body.password = md5(req.body.password);
+      userModel.createUser(req.body, (err, isOK) => {
+        if (isOK) {
+          res.redirect('/signin');
+        } else {
+          res.render('/signin', {
+            msg: '注册失败'
+          })
         }
-      )
-    }
-  )
-
-
-
+      })
+    })
+  })
 }
 exports.handleSignout = (req, res) => {
   res.send('hello')
